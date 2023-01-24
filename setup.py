@@ -10,6 +10,26 @@ from setuptools import setup, find_packages
 
 #### TO DO
 
+
+setup(
+      name = "clustervisualizer",
+      #version = __version__,
+      author = "James Edmond",
+      author_email = "edmondandy795@gmail.com",
+      description = "Visualize clustered data.",
+      #long_description = long_description,
+      #long_description_content_type = "text/markdown",
+      url = "https://github.com/jae1018/clustervisualizer",
+      license = "MIT",
+      packages = ["clustervisualizer.ClusterAnalyzer",
+                  "clustervisualizer.CrossingAnalyzer"],
+      install_requires = ["numpy>=1.8",
+                          "scipy>=1.4.1", 
+                          "matplotlib>=3.1.1",
+                          "pandas>=1.4"],
+      python_requires = '>=3.6',
+	)
+
 #setup(
 #    name='Unsupervised_THEMIS_Clustering_Project',
 #    version="1.0",
