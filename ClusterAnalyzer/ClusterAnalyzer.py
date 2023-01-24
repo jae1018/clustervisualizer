@@ -15,38 +15,30 @@ CLASS VARS:
 
 
 
-import os, shutil, copy, math, sys
+import os
+#import shutil, copy, math, sys
 import warnings
 import itertools
-import time, gc
+#import time, gc
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize_scalar
+#from scipy.optimize import minimize_scalar
 import scipy
 
 # Graphical Imports
 import matplotlib.pyplot as plt
-import matplotlib.transforms as transforms
-from mpl_toolkits.mplot3d.art3d import Line3DCollection
+#import matplotlib.transforms as transforms
+#from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from matplotlib.ticker import AutoMinorLocator
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
-import matplotlib.dates as mdates
+#import matplotlib.dates as mdates
 
 # Import from same package
 from . import utils
 
-module_loc = "/home/jedmond/Documents/ML_Research/Source/customplotlib"
-sys.path.insert(0, module_loc)
-import customplotlib as cpl
 
 
-# Custom import
-#from . import PhysicsArtist
-#from ..PhysicsArtist import PhysicsArtist
-#from Unsupervised_THEMIS_Clustering_Project.PhysicsArtist import PhysicsArtist
-#import PhysicsArtist.PhysicsArtist as PhysicsArtist
-#import PhysicsArtist.PhysicsArtist
 
 
 class ClusterAnalyzer:
@@ -73,34 +65,59 @@ class ClusterAnalyzer:
     
     def __init__(self, df,
                        pred_arr,
-                       categ_vars=None,
-                       output_folder=None,
-                       name_clusters=None,
-                       epoch_times=None):
+                       output_folder = None,
+                       name_clusters = None):
         
-        # Determine categorical vars (and convert to list if just given string)
-        #np.issubdtype(float,np.number)
+        """
+        Creates a cluster analysis object.
         
+        
+        Parameters
+        ----------
+        df: Pandas dataframe (N rows)
+            df of data that was clustered
+            
+        pred_arr: 1d numpy arr (N rows of ints) or 2d numpy arr
+                  (N rows x K columns of floats)
+            Numpy array used to indicate cluster affiliation.
+            
+            1d ARRAY <==> HARD CLUSTERING
+                A 1d array of ints means hard clustering was used 
+                (i.e. a point belongs to a cluster - or not). The
+                number of clusters is inferred from the number of
+                unique integers counting from 0 and up.
+                
+            2d ARRAY <==> SOFT CLUSTERING
+                A 2d array of floats means soft clustering was used
+                (i.e. for clustering a point among K clusters, the point
+                 is assigned K probabilities that sum to 1).
+                
+        output_folder: str (default None)
+            Path to output folder to store results in.
+            If None, a subfolder 'Cluster_Analysis' is made at the
+            current working directory.
+            
+        name_clusters: 
+        
+        
+        """
         
         # Make output folder
         self.out_fldr = self._init_output_folder(output_folder)
-        
         
         # Save provided df and assignment arr
         self.df = df
         self.pred_arr = pred_arr
         self.n_clusters = self._compute_num_clusters()
         
-        
         # Determine what labels (strings) to apply to each cluster based on
         # which clusters maximize functions
         self.cluster_names = self._assign_cluster_names(name_clusters)
         
-        
-        # And intialize physics artist for drawing stuff
-        #self.physics_artist = PhysicsArtist.PhysicsArtist()
 
     
+
+
 
 
 
@@ -109,7 +126,18 @@ class ClusterAnalyzer:
     def _init_output_folder(self, output_folder):
         
         """
-        asdf
+        Creates subfolder at address given by output_folder arg
+        
+        Parameters
+        ----------
+        output_folder: str (or None)
+            If not none, path to desired subfolder to create
+            If None, path becomes cwd/Cluster_Analysis
+        
+        Returns
+        -------
+        out_folder_full_path: str
+            global address to created subfolder
         """
         
         if output_folder is None: output_folder = os.getcwd()
@@ -123,24 +151,25 @@ class ClusterAnalyzer:
     
     
     
+    
+    
+    
+    
     def _make_rel_subdir(self, subdir_path):
         
         """
         Makes relative subdirectory under file structure rooted
-        at class out_fldr if it does not exist.
-        
-        
+        at class attribute out_fldr if it does not exist.
         
         PARAMETERS
         ----------
         subdir_path: str
             Path (global or relative) of folder to make
             
-            
-            
         RETURNS
         -------
-        None
+        total_path: str
+            Global address to created subdirectory
         """
     
         # Get global path to subdir_path
@@ -152,16 +181,9 @@ class ClusterAnalyzer:
         return total_path
     
     
-
-
-        
-
-    # Makes directory tree (if it doesn't already exist) of paths relative
-    # to the class output_folder attribute
-    #def _make_rel_dir(self,rel_path):
-    #    full_path = os.path.join(self.output_folder,rel_path)
-    #    if not os.path.exists(full_path): os.makedirs(full_path)
-    #    return full_path
+    
+    
+    
     
     
     
@@ -170,23 +192,20 @@ class ClusterAnalyzer:
     def _is_categ_var(self, label):
         
         """
-        Checks if data in df given by label is a categorical variable or not.
-        This is done by seeing if the array has type that is NOT a subset of
-        np.number
-        
-        
+        Checks if data in class dataframe given by label is a
+        categorical variable or not. This is done by seeing if
+        the array has type that is NOT a subset of np.number
         
         PARAMETERS
         ----------
         label: str (or 1-element list of str)
-            str used to access data in class df
-            
-            
+            str used to access data in class dataframe
             
         RETURNS
         -------
         boolean (True if categorical variable, False if not)
         """
+        
         if isinstance(label,list): label = label[0]        
         return not np.issubdtype( self.df[label].dtype.type, np.number )
     
@@ -195,24 +214,37 @@ class ClusterAnalyzer:
     
     
 
+
+
+
+
     def _assign_cluster_names(self, cluster_names_dict):
         
         """
-        Names the clusters of data via 3 possibilities:        
+        Names the clusters according to strings in cluster_names_dict.
+        The resulting naming is representing using a dict (str:int), 
+        where keys are the cluster names and the ints refer to either
+        (1) the unique ints for hard clustering, or (2) the column index
+        for soft clustering.
         
-        IF SOFT CLUSTERING:
-            Take top 20% of probs and see which has highest avg
-        IF HARD CLUSTERING:
-            Whichever has the highest average
+        If dict given is None, just names the clusters as 'c0', 'c1', ...
+        
+        Currently, for soft clustering, the top 20% of data is taken
+        and functions are applied to that subset.
             
         PARAMETERS
         ----------
-        cluster_names_dict: dict
-            Strs used to name clusters are keys with values being 1 or 2
-            element tuples.
-            If 1 element, then is only a str that is a label in df.
-            If 2 elements, then values are a str is a label in df AND
-                2nd elem is a function
+        cluster_names_dict: dict (name_str : value), or None
+            Str keys will become the cluster names based on the value given.
+            The values can be either ...
+                (1) a str, where said str is a label for data. The cluster
+                    that has the highest average for this label will
+                    inherit name_str as that cluster's name.
+                (2) or 2-element tuples, where the 1st element is a label
+                    str like in option (1), but the 2nd element is a
+                    function. The cluster that maximizes this function
+                    using label data will inherit name_str is the cluster
+                    name
                 
         RETURNS
         -------
@@ -223,7 +255,7 @@ class ClusterAnalyzer:
         names2clusterint_dict = {}
         
         
-        #### If names2avg_dict is None, then no funcs given; just
+        #### If cluster_names_dict is None, then no funcs given; just
         #### make the cluster name the str equivalent of the cluster int
         if cluster_names_dict is None:
             for n in range(self.n_clusters):
@@ -305,34 +337,34 @@ class ClusterAnalyzer:
             raise ValueError(error_mssg)
         
         return names2clusterint_dict
-            
+                
     
     
     
     
     
     
-    # Determine number of clusters based on clustering type
+    
+    
+
     def _compute_num_clusters(self):
         
         """
         Compute number of clusters.
         
-        
-        
         PARAMETERS
         ----------
         None
-        
-        
         
         RETURNS
         -------
         number of clusters (int)
         """
         
+        # If soft clustering, return number of columns of pred_arr
         if self._clustering_type() == ClusterAnalyzer.SOFT_CLSTR_STR:
             return self.pred_arr.shape[1]
+        # If hard clustering, return number of unique ints in pred_arr
         if self._clustering_type() == ClusterAnalyzer.HARD_CLSTR_STR:
             return np.unique(self.pred_arr).shape[0]
     
@@ -341,41 +373,15 @@ class ClusterAnalyzer:
     
     
     
-    """def _cluster_ints(self):
-        return np.arange(1, self.n_clusters+1).tolist()"""
-    
-    
-    
-    
-    
-    """def _get_cluster_int_to_cluster_prob_col_index_dict(self,invert=None):
-        if invert is None: invert = True
-        
-        # Make dict mapping from cluster int (1 and up) to col index (0 up
-        # to max(cluster_ints)-1).
-        all_cluster_ints = self._get_possible_clusters()
-        int_to_col_dict = { all_cluster_ints[i]: all_cluster_ints[i]-1 \
-                            for i in range(len(all_cluster_ints)) }
-        
-        # If dict mapping from cluster int to prob column index desired,
-        # simply return dict made thus far
-        if not invert: return int_to_col_dict
-        
-        # Otherwise, return INVERSE of dict
-        else:
-            return { int_to_col_dict[key] : key for key in int_to_col_dict }"""
-    
     
     
     
         
-    
     # Returns str indicating soft or hard clustering
     def _clustering_type(self):
         
         """
-        Indicates if clustering done is hard or soft (based on type
-        of clustering type)
+        Indicates if clustering is hard or soft
         
         PARAMETERS
         ----------
@@ -383,7 +389,7 @@ class ClusterAnalyzer:
         
         RETURNS
         -------
-        str (which is a class constant)
+        str stating if clustering if hard or soft
         """
         
         # Grab fundamental numpy type from pred_arr
@@ -405,10 +411,25 @@ class ClusterAnalyzer:
     
     
     
+    
+    
+    
     def _cluster_name2int(self, str_name):
+        
         """
-        Converts from cluster str to int
+        Once clusters are named, can convert from cluster_name to
+        cluster_int using this.
+        
+        Parameters
+        ----------
+        str_name: str
+            str that should be key in cluster_names class dict
+        
+        Returns
+        -------
+        int: cluster int
         """
+        
         return self.cluster_names[str_name]
     
     
@@ -417,41 +438,31 @@ class ClusterAnalyzer:
     
     
     
+    
+    
+    
     def _cluster_int2name(self, cluster_int):
+        
         """
-        Convert from cluster int to str
+        Once clusters are named, can convert from cluster int to
+        cluster name using this
+        
+        Parameters
+        ----------
+        cluster_int: int
+            int used to represent a cluster (unique cluster int if
+            hard clustering or column index if soft clustering)
+            
+        Returns
+        -------
+        str: cluster name corresponding to give cluster int
         """
+        
         return { self.cluster_names[key] : key \
                  for key in self.cluster_names }[cluster_int]
     
     
     
-
-    
-    
-    """# Retrieves the data belonging to cluster with name cluster_name as given
-    # by the class dictionary cluster_names.
-    def _get_cluster_data_by_name(self,cluster_name,label=None):
-        if cluster_name not in cluster_names:
-            cluster_names_str = ",".join( list(self.cluster_names.keys()) )
-            raise ValueError("Error! Provided cluster_name " + cluster_name + \
-                             "not in cluster_names: [" + cluster_names_str + \
-                             "]")
-        return self._get_data(
-                        cluster_int=self.cluster_names[cluster_name],
-                        label=label
-                            )"""
-    
-    
-    
-    
-    def _is_int(val):
-        
-        """
-        checks if num is int (either vanilla or numpy)
-        """
-        
-        return isinstance(val, (int, np.int32, np.int64))
     
     
     
@@ -466,6 +477,9 @@ class ClusterAnalyzer:
         """
         
         return isinstance(val, (str, np.str_))
+    
+    
+    
     
     
     
@@ -495,7 +509,6 @@ class ClusterAnalyzer:
         Retrieves data in cluster (or from all). The *context* of that data
         varies with the parameters specified, as indicated below.
 
-            
 
 
         PARAMETERS
@@ -518,12 +531,10 @@ class ClusterAnalyzer:
                  was NOT passed!
         
         
-        
                 
         IF NO PARAMS GIVEN:
             
             Array of entire class df is returned
-        
         
         
         
@@ -540,7 +551,6 @@ class ClusterAnalyzer:
                  Returns array of data under label(s) across ALL clusters.
                  
             *) min_prob is not used
-    
     
         
     
@@ -562,7 +572,6 @@ class ClusterAnalyzer:
                  Returns class df data given by label if the cluster
                  probability exceeds min_prob
 
-        
     
         
         RETURNS
@@ -589,8 +598,9 @@ class ClusterAnalyzer:
         
         
         #### Check if cluster is legal
-        # If cluster is int, check if in range of n_clusters 
-        if ClusterAnalyzer._is_int(cluster):
+        # If cluster is int, check if in range of n_clusters
+        if np.issubdtype(cluster, np.integer):
+        #if ClusterAnalyzer._is_int(cluster):
             # Have to account for typical range, but also the 
             # designated class int indicating all clusters
             legal_cluster_ints = np.arange(self.n_clusters).tolist()
@@ -706,6 +716,22 @@ class ClusterAnalyzer:
     # Determine number of rows and columns of subplots in a figure based on
     # total number of subplots
     def _num_rows_and_cols_for_subplots(self,num_plots):
+        
+        """
+        Decides the number of rows and columns for a matplotlib
+        multi plot figure based on number of plots to make
+        
+        Parameters
+        ----------
+        num_plots: int
+            Number of plots to make
+            
+        Returns
+        -------
+        2-element list of number rows x number columns
+        
+        """
+        
         num_subplot_rows, num_subplot_cols = None, None
         
         if num_plots == 1:
@@ -728,10 +754,6 @@ class ClusterAnalyzer:
         else: num_subplot_rows = int( (num_plots - 1) / num_subplot_cols ) + 1
             
         return [num_subplot_rows,num_subplot_cols]
-    
-    
-    
-    
 
         
         
@@ -742,13 +764,29 @@ class ClusterAnalyzer:
     
     
     
-    # Only meant for handling pts from 1 to 10**15
     def _num2str(self, num,
                        scale       = None,
                        decimal_pts = None):
         
         """
-        asdf
+        Formatter for converting large numbers to string representation
+        (e.g. 9*10**10 --> '90B', where B is billion)
+        
+        Parameters
+        ----------
+        num: number
+            number to format
+            
+        scale: str (default None)
+            Used to set scale of number. If None, will convert to most
+            convenient scale.
+            
+        decimal_pts: int (default None)
+            Number of places to right of decimal to keep.
+            
+        Returns
+        -------
+        String-formatted num
         """
         
         if scale is None: scale = "auto"
@@ -803,21 +841,23 @@ class ClusterAnalyzer:
     
     
     
-    """def _make_figpath(self,the_folder,figname):
-        return os.path.join(
-                    the_folder,
-                    figname + ClusterAnalyzer.DEFAULT_IMAGE_TYPE
-                            )"""
     
-
-    
-    
-    
-    
-    
-    # Make a filename legal b/c certain OS's don't like particular characters
-    # in the filenames (like "/" in Linux)
-    def _make_legal_filename(self,figname):
+    def _make_legal_filename(self, figname):
+        
+        """
+        Make a legal filename based on the current operating system
+        (Currently planned only for Unix systems)
+        
+        Parameters
+        ----------
+        figname: str
+            figname to make legal
+            
+        Returns
+        -------
+        str: Legalized figname
+        """
+        
         # p means "per" as in X/Y = X per Y
         new_name = figname.replace("/","p")
         new_name = new_name.replace("_","")
@@ -857,7 +897,6 @@ class ClusterAnalyzer:
         the probability over the histogram instead.
         
         
-        
         PARAMETERS
         ----------
         axis: Matplotlib axis object
@@ -882,11 +921,9 @@ class ClusterAnalyzer:
             Number of bins used for making the histogram
             
             
-            
         RETURNS
         -------
         None
-        
         """
         
         if cluster is None: cluster = ClusterAnalyzer.ALL_CLUSTERS_INT
@@ -1133,7 +1170,6 @@ class ClusterAnalyzer:
                                             color_patch_dict = None):
             
         """
-        
         Creates two "patch collections" for 2d histogram data: one collection,
         the "color_patch", for 2d bins in which a value gauges its color from
         a color bar, and another collection, the "nan_patch" for 2d bins in
@@ -1168,7 +1204,6 @@ class ClusterAnalyzer:
         RETURNS
         -------
         2-element list of matplotlib nan and color patch collections, resp.
-        
         """
         
         #### Create rectangle from coords for each bin-pair and save it
@@ -1301,7 +1336,8 @@ class ClusterAnalyzer:
         
         ### Determine xbins and ybins based on bins (and type thereof)
         # If given ints, then compute lin-spaced bins
-        if ClusterAnalyzer._is_int(bins[0]):
+        #if ClusterAnalyzer._is_int(bins[0]):
+        if np.issubdtype(bins[0], np.integer):
             # compute xbins
             xbins = np.linspace(np.min(histx_data),
                                 np.max(histx_data),
