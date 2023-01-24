@@ -21,13 +21,15 @@ setup(
       #long_description_content_type = "text/markdown",
       url = "https://github.com/jae1018/clustervisualizer",
       license = "MIT",
-      packages = ["clustervisualizer.ClusterAnalyzer",
+      packages = ["clustervisualizer",
+		  "clustervisualizer.ClusterAnalyzer",
                   "clustervisualizer.CrossingAnalyzer"],
       install_requires = ["numpy>=1.8",
                           "scipy>=1.4.1", 
                           "matplotlib>=3.1.1",
                           "pandas>=1.4"],
       python_requires = '>=3.6',
+      version = '0.1'
 	)
 
 #setup(
