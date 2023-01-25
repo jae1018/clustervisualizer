@@ -395,10 +395,10 @@ class ClusterAnalyzer:
         # Grab fundamental numpy type from pred_arr
         arr_type = self.pred_arr.dtype.type
         # If of type int, then hard clustering
-        if np.issubdtype(arr_type, np.int):
+        if np.issubdtype(arr_type, np.integer):
             return ClusterAnalyzer.HARD_CLSTR_STR
         # If of type float, then soft clustering
-        elif np.issubdtype(arr_type, np.float):
+        elif np.issubdtype(arr_type, np.floating):
             return ClusterAnalyzer.SOFT_CLSTR_STR
         # Otherwise, unrecognized type and raise Value Error
         else:
