@@ -1,2 +1,2 @@
 # clustervisualizer
-A python library for visualizing clustered data form clustering algorithms. 
+A python library for visualizing clustered data from clustering algorithms. 
