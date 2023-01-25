@@ -1,38 +1,15 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-CLASS VARS:
-    
-    input_df: 2D pandas dataframe
-    cluster_affil_arr: 1D (hard-clustering) or 2D (soft) array with integers / 
-                        probabilities representing cluster affiliation. If
-                        integers, cluster ints range from 0 to n-1 for n clusters;
-                        if probabilties, then each data points probs should sum
-                        to 1.
-
-@author: jedmond
-"""
-
-
-
 import os
-#import shutil, copy, math, sys
 import warnings
 import itertools
-#import time, gc
 import numpy as np
 import pandas as pd
-#from scipy.optimize import minimize_scalar
 import scipy
 
 # Graphical Imports
 import matplotlib.pyplot as plt
-#import matplotlib.transforms as transforms
-#from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from matplotlib.ticker import AutoMinorLocator
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
-#import matplotlib.dates as mdates
 
 # Import from same package
 from . import utils
@@ -395,10 +372,10 @@ class ClusterAnalyzer:
         # Grab fundamental numpy type from pred_arr
         arr_type = self.pred_arr.dtype.type
         # If of type int, then hard clustering
-        if np.issubdtype(arr_type, np.integer):
+        if ClusterAnalyzer._is_int(arr_type):
             return ClusterAnalyzer.HARD_CLSTR_STR
         # If of type float, then soft clustering
-        elif np.issubdtype(arr_type, np.floating):
+        elif ClusterAnalyzer._is_float(arr_type):
             return ClusterAnalyzer.SOFT_CLSTR_STR
         # Otherwise, unrecognized type and raise Value Error
         else:
@@ -469,14 +446,54 @@ class ClusterAnalyzer:
     
     
     
+    def _is_float(val):
+        
+        """
+        Returns true if val has float type OR is type float
+        (e.g. 1.0 vs np.float32)
+        """
+        
+        if not isinstance(val, type):
+            val = type(val)
+        return np.issubdtype(val, np.floating)
+    
+    
+    
+    
+    
+    
+    
+    
+    def _is_int(val):
+        
+        """
+        Returns true if val has integer type OR is type integer
+        (e.g 1 vs np.int32)
+        """
+    
+        if not isinstance(val, type):
+            val = type(val)
+        return np.issubdtype(val, np.integer)
+    
+    
+    
+    
+    
+    
+    
+    
     
     def _is_str(val):
         
         """
-        checks if val is str (either vanilla or numpy)
+        Returns true if val has type str OR is type str
+        (e.g. 'foo' vs np.str_)
         """
         
-        return isinstance(val, (str, np.str_))
+        if not isinstance(val, type):
+            val = type(val)
+        return np.issubdtype(val, np.str_)
+        #return isinstance(val, (str, np.str_))
     
     
     
@@ -599,8 +616,7 @@ class ClusterAnalyzer:
         
         #### Check if cluster is legal
         # If cluster is int, check if in range of n_clusters
-        if np.issubdtype(cluster, np.integer):
-        #if ClusterAnalyzer._is_int(cluster):
+        if ClusterAnalyzer._is_int(cluster):
             # Have to account for typical range, but also the 
             # designated class int indicating all clusters
             legal_cluster_ints = np.arange(self.n_clusters).tolist()
@@ -645,7 +661,7 @@ class ClusterAnalyzer:
                 return row_inds
             # ... otherwise, return the data corresponding to those inds
             else:
-                return self.df[label][ row_inds ].values
+                return self.df[label].iloc[ row_inds ].values
         
         
         
@@ -1336,8 +1352,7 @@ class ClusterAnalyzer:
         
         ### Determine xbins and ybins based on bins (and type thereof)
         # If given ints, then compute lin-spaced bins
-        #if ClusterAnalyzer._is_int(bins[0]):
-        if np.issubdtype(bins[0], np.integer):
+        if ClusterAnalyzer._is_int(bins[0]):
             # compute xbins
             xbins = np.linspace(np.min(histx_data),
                                 np.max(histx_data),
@@ -1625,14 +1640,44 @@ class ClusterAnalyzer:
         
         """
         
-        Create a multi-subplot figure of histograms for each cluster. A hist
-        is made for each variable in hist_vars
-        
+        Plot histograms of in-cluster data over general data. A set of
+        histograms is made for each cluster        
         
         
         PARAMETERS
         ----------
         hist_vars: list of str (optional, default all labels in class df)
+            Labels of data in class df to make histograms of
+            
+        num_bins: int (optional, default None)
+            Number of bins to use for histograms
+            
+        figsize: 2-element tuple (optional, default None)
+            Default size of multiplot figure
+            
+        logx: bool or list of labels (optional, default False)
+            If True, all plots have their histogram variable converted
+            to log scale
+            If False, histogram data is not altered
+            If list of labels, then histogram of each label in list
+            is converted to log
+            
+        logy: bool or list of labels (optional, default False)
+            If True, all plots have their histogram counts converted
+            to log scale
+            If False, histogram counts are not altered
+            If list of labels, then histogram counts of each label in list
+            is converted to log
+            
+        subplot_titles: dict(str:str) (optional, default None)
+            Dict with dataframe labels as keys and desired subplot titles
+            as values. The values replace the label as the title in the
+            histograms.
+            
+        
+        RETURNS
+        -------
+        None
         
         """
         
@@ -1767,16 +1812,87 @@ class ClusterAnalyzer:
                      figname          = None):
         
         """
+        Creates a 2d histogram for each cluster (and all data combined)
+        over 2 variables using a specified heatmap varable and statistic.
         
-        Supported hist_heatmap: any label in class df / prob
         
-        heatmap_stat: "probability" or any stat listed in scipy docs below
+        Parameters
+        ----------
+        histxy: 2-element tuple of labels (optional, default are
+                                           first two labels)
+            The two labels used to create the x and y dimensions of
+            the histograms.
+            
+        hist_var: str (optional, default None)
+            The label used for the heatmaps.
+            If using soft clustering, can also specify 'probability'
+            as the heatmap.
+            
+        hist_stat: str (optional, default is 'mean')
+            The statistic to compute heatmap values.
+            Supported values:
+                Read the documentation of supported arguments for the
+                scipy function scipy.stats.binned_statistic_2d
+        
+        bins: 2-element tuple of ints (optional, default (50,50))
+            The bins used to create the histograms along the x and y dimensions
+            
+        figsize: 2-element tuple (optional, default None)
+            Figsize used to generate multiplot figure
+            
+        logx: bool or list of labels (optional, default False)
+            If True, all plots have their x-histogram variable converted
+            to log scale
+            If False, histogram data is not altered
+            If list of labels, then x-histogram of each label in list
+            is converted to log
+            
+        logy: bool or list of labels (optional, default False)
+            If True, all plots have their y-histogram variable converted
+            to log scale
+            If False, histogram data is not altered
+            If list of labels, then y-histogram of each label in list
+            is converted to log
+            
+        log_hist_var: bool (optional, default False)
+            If True, heatmap data is converted to log scale *before*
+            computing heatmap histogram.
+            
+            heatmap values are converted to log10 scale
+            
+        log_hist_stat: bool (optional, default False)
+            If True, resulting heatmap values are converted to log10 scale
+            (this is *after* histogram heatmap has been computed!).
+            
+        cbar_bounds: 2-element tuple of numbers (optional, default
+                                is min / max of heatmap values)
+            Tuple used to set the min / max bounds of the colorbar
+            (Needed if want to set consistent bounds across histograms)
+            
+        color_patch_dict: kwargs for patches (optional, default None)
+            Kwargs used to create patches for bins that have
+            defined colormap values. Read more at
+            https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.Patch.html
+        
+        nan_patch_dict: kwargs for patches (optional, default None)
+            Kwargs used to create patches for bins that have
+            NON-defined colormap values. Read more at
+            https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.Patch.html
+                            
+        figname: str (optional, default None)
+            figname used to save figure
+            
+        
+        Returns
+        -------
+        None
+    
         
         note: if heatmap_stat set to "count", hist_heatmap is irrelevant!!!
         
         for supported heatmap_stat values, check out scipy's hist2d docs
         EXECPT FOR "count":
-        https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.binned_statistic_2d.html
+        https://docs.scipy.org/doc/scipy/reference/generated/.html
         
         """
         
@@ -1789,8 +1905,17 @@ class ClusterAnalyzer:
         if logy is None: logy = False
         if log_hist_var is None: log_hist_var = False
         if log_hist_stat is None: log_hist_stat = False
-        #if subplot
         
+        
+        
+        ## Raise error is user wants probablity heatmap but is
+        ## doing hard clustering
+        if ((self._clustering_type() == ClusterAnalyzer.HARD_CLSTR_STR) \
+            and (hist_var == ClusterAnalyzer.PROBAB_STR)):
+            raise ValueError(
+                'Cannot use hist_var = \'' + ClusterAnalyzer.PROBAB_STR
+                + '\' if using hard clustering'
+                            )
         
         
                 
@@ -2146,6 +2271,9 @@ class ClusterAnalyzer:
 
         
         """
+        If clustering is done over time-series data, can compute crossings
+        between clusters if given parameters related to crossing duration
+        and minimum probability.
         
         Determine crossings in clustering
         
