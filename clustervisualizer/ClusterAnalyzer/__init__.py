@@ -17,3 +17,6 @@ Created on Fri Jul 22 13:42:27 2022
 ##import ClusterAnalyzer.utils as utils
 #####from . import utils
 #####__all__ = [ "ClusterAnalyzer", "utils"]
+
+from .ClusterAnalyzer import ClusterAnalyzer
+from . import utils
