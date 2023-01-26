@@ -116,8 +116,7 @@ class ClusterAnalyzer:
         """
         
         ## If none is arg, return none
-        if output_folder is None:
-            return None
+        if output_folder is None: return None
         
         ## Otherwise, make subfolder and return global address
         out_folder_full_path = os.path.join(output_folder,
@@ -138,7 +137,7 @@ class ClusterAnalyzer:
         
         """
         Makes relative subdirectory under file structure rooted
-        at class attribute out_fldr if it does not exist.
+        at class attribute output_folder IF output_folder was set.
         
         PARAMETERS
         ----------
@@ -147,16 +146,18 @@ class ClusterAnalyzer:
             
         RETURNS
         -------
-        total_path: str
-            Global address to created subdirectory
+        None or str
+            Returns none if output_folder is not set
+            Returns global address of created subdirectory as str if set
         """
     
-        # Get global path to subdir_path
+        ## If output folder is not set, return None
+        if self.out_fldr is None:
+            return None
+        
+        ## Otherwise, make subdir and return global address
         total_path = os.path.join(self.out_fldr, subdir_path)
-        # Make dir(s) if DNE
-        if not os.path.exists(total_path):
-            os.makedirs(total_path)
-        # Return global path
+        if not os.path.exists(total_path): os.makedirs(total_path)
         return total_path
     
     
@@ -173,7 +174,7 @@ class ClusterAnalyzer:
         """
         Checks if data in class dataframe given by label is a
         categorical variable or not. This is done by seeing if
-        the array has type that is NOT a subset of np.number
+        the dtype name from the label is 'category'
         
         PARAMETERS
         ----------
@@ -186,7 +187,8 @@ class ClusterAnalyzer:
         """
         
         if isinstance(label,list): label = label[0]        
-        return not np.issubdtype( self.df[label].dtype.type, np.number )
+        #return not np.issubdtype( self.df[label].dtype.type, np.number )
+        return self.df[label].dtype.name == 'category'
     
     
     
@@ -722,6 +724,7 @@ class ClusterAnalyzer:
                 else:
                     return expec_vals_dict
 
+
             
                 
        
@@ -814,9 +817,9 @@ class ClusterAnalyzer:
         if scale == "auto":
             scale = ""
             # < thousands
-            if (abs(num) <= 100): scale = ""
+            if (abs(num) < 1000): scale = ""
             # Thousands
-            elif ((abs(num) > 10**2) and (abs(num) <= 10**5)): scale = "K"
+            elif ((abs(num) >= 10**3) and (abs(num) <= 10**5)): scale = "K"
             # Millions
             elif ((abs(num) > 10**5) and (abs(num) <= 10**8)): scale = "M"
             # Billions
@@ -1020,7 +1023,8 @@ class ClusterAnalyzer:
                 axis_probs = axis.twinx()
                 axis_probs.scatter(mean_bin_vals,
                                    stat_results.statistic,
-                                   s=2.0,
+                                   #s=2.0,
+                                   s=500/bins,
                                    c="purple")
                 # Enforce same y scale for all prob plots
                 axis_probs.set_ylim([-0.05,1.05])
@@ -1540,7 +1544,6 @@ class ClusterAnalyzer:
     def _build_constraints_list_of_dicts(self, constraints):
         
         """
-        
         Build list of dicts of constraints from initial list.
         Each dict represents a possible combination of unique values for
         the variable names given in constraints
@@ -1564,11 +1567,15 @@ class ClusterAnalyzer:
         
         RETURNS
         -------
-        list of dicts; each dict has one str per key and indicates the 
-        allowed value for that variable for that combination
-        
+        list of None or list of dicts
+            Returns list of one None if constraints arg is None
+            Returns list of dicts where each dict has one str per key and
+            indicates the allowed value for that variable for that combination
         """
         
+        
+        #### If constraints is None, just return None
+        if constraints is None: return [None]
         
         
         #### Convert input from str -> list (if str)
@@ -1614,6 +1621,7 @@ class ClusterAnalyzer:
             for i in range(len(constraints_keys)):
                 combo_as_dict[ constraints_keys[i] ] = combo[i]
             constraint_combos_dict_list.append( combo_as_dict )
+        
         
         return constraint_combos_dict_list
     
@@ -1687,12 +1695,18 @@ class ClusterAnalyzer:
         
         """
         
-        if hist_vars is None: hist_vars = list(self.df)
         if bins is None: bins = ClusterAnalyzer.BINS_1D
         if figsize is None: figsize = ClusterAnalyzer.MULTIPLOT_SIZE
+            
+        
+        ## Prepare hist_vars
+        if hist_vars is None: hist_vars = list(self.df)
+        if isinstance(hist_vars,str): hist_vars = [ hist_vars ]
+        
+        
+        ## Prepare subplot_titles
         if subplot_titles is None:
             subplot_titles = { label : label for label in hist_vars }
-        # fignames unsupported for now!
         
         
         ## Prepare logx
@@ -1705,6 +1719,16 @@ class ClusterAnalyzer:
         if logy is None: logy = False
         if logy == False: logy = []
         if logy == True: logy = hist_vars
+        
+        
+        ## Check if types are allowed in hist_vars
+        for label in hist_vars:
+            if np.issubdtype(self.df[label].dtype.type,
+                             np.datetime64):
+                raise ValueError(
+                    "Histograms not supported for label using type "
+                    + "numpy.datetime64: \'" + label + "\'"
+                                )
         
         
         # Make output hist1d folder
@@ -1724,7 +1748,11 @@ class ClusterAnalyzer:
             
             
             # Turn axes from 2d array into 1d for easier iteration
-            axes_1d = axes.reshape(num_plot_rows * num_plot_cols)
+            axes_1d = None
+            if num_plots != 1:
+                axes_1d = axes.reshape(num_plot_rows * num_plot_cols)
+            else:
+                axes_1d = np.array( [axes] )
             
             
             # For each overall plot, make individual subplots
@@ -1787,12 +1815,16 @@ class ClusterAnalyzer:
             
             
             
-            #### Save cluster histogram
-            cluster_figname = cluster_name + "_cluster" + self.IMAGE_TYPE
-            image_path = os.path.join(hist_path,
-                                      cluster_figname)
-            plt.savefig(image_path)
-            plt.close()
+            #### Save (or show) cluster histogram
+            if self.out_fldr is None:
+                plt.show()
+                plt.close()
+            else:
+                cluster_figname = cluster_name + "_cluster" + self.IMAGE_TYPE
+                image_path = os.path.join(hist_path,
+                                          cluster_figname)
+                plt.savefig(image_path)
+                plt.close()
     
         
     
@@ -2082,11 +2114,15 @@ class ClusterAnalyzer:
         
         
         
-        #### Save cluster histogram
-        if figname is None: figname = "hist2d_" + hist_var
-        image_path = os.path.join(hist_path, figname + self.IMAGE_TYPE)
-        plt.savefig(image_path)
-        plt.close()
+        #### Save (or show) cluster histogram
+        if self.out_fldr is None:
+            plt.show()
+            plt.close()
+        else:
+            if figname is None: figname = "hist2d_" + hist_var
+            image_path = os.path.join(hist_path, figname + self.IMAGE_TYPE)
+            plt.savefig(image_path)
+            plt.close()
     
     
     
@@ -2250,11 +2286,15 @@ class ClusterAnalyzer:
         
         
         
-        #### Save cluster histogram
-        if figname is None: figname = "mahal_hist"
-        image_path = os.path.join(hist_path, figname + self.IMAGE_TYPE)
-        plt.savefig(image_path)
-        plt.close()
+        #### Save (or show) cluster histogram
+        if self.out_fldr is None:
+            plt.show()
+            plt.close()
+        else:
+            if figname is None: figname = "mahal_hist"
+            image_path = os.path.join(hist_path, figname + self.IMAGE_TYPE)
+            plt.savefig(image_path)
+            plt.close()
             
             
             
@@ -2442,12 +2482,14 @@ class ClusterAnalyzer:
             
             
             ## Find row inds that satisfy ALL constraints in constraint_combo
+            ## (and if constraint_combo is None, just use all row inds)
             row_inds = np.arange(self.df.shape[0])
-            for var_key in constraint_combo:
-                row_inds = np.intersect1d(
-                    row_inds,
-                    np.where(self.df[var_key] == constraint_combo[var_key])[0]
-                                         )
+            if constraint_combo is not None:
+                for var_key in constraint_combo:
+                    row_inds = np.intersect1d(
+                        row_inds,
+                        np.where(self.df[var_key] == constraint_combo[var_key])[0]
+                                             )
                 
                 
             ## Get subset that satsify those constraints and sort w/r/t time
@@ -2461,17 +2503,41 @@ class ClusterAnalyzer:
             times = sorted_subdf[time_var].values
         
         
-            ## Perform clustering based on soft or hard
+            ## Compute crossings for hard clustering
             if self._clustering_type() == ClusterAnalyzer.HARD_CLSTR_STR:
                 
-                print("not yet implemented!")
-                """self.compute_cluster_crossings_hard(
-                            times,
-                            sorted_preds,
-                            min_crossing_duration=min_crossing_duration,
-                            max_crossing_duration=max_crossing_duration
-                                                    )"""
+                # Convert hard to a soft equivalent (but with only
+                # probabilities being 0 or 1)
+                # preds = [0, 0, 1, 2, 0, 1] becomes...
+                # [ [1, 0, 0],
+                #   [1, 0, 0],
+                #   [0, 1, 0],
+                #   [0, 0, 1],
+                #   [0, 1, 0] ]
+                hard2soft_preds = np.zeros((sorted_preds.shape[0],
+                                            np.unique(sorted_preds).shape[0]))
+                for ind in np.unique(sorted_preds):
+                    inds_to_set_to_1 = np.where(sorted_preds == ind)[0]
+                    hard2soft_preds[inds_to_set_to_1,ind] = 1
+                sorted_preds = hard2soft_preds
+                
+                # Now compute crossings as though they're "soft"
+                crossing_table_list = utils.compute_crossings_soft(
+                        times,
+                        sorted_preds,
+                        min_crossing_duration = min_crossing_duration,
+                        max_crossing_duration = max_crossing_duration,
+                        min_prob = 0.9,
+                        min_cluster_frac = min_cluster_frac,
+                        min_beyond_crossing_duration = \
+                                    min_beyond_crossing_duration,
+                        max_beyond_crossing_duration = \
+                                    max_beyond_crossing_duration,
+                        overlap_preference = overlap_preference
+                                                                    )
+
             
+            ## Compute crossings for soft clustering
             if self._clustering_type() == ClusterAnalyzer.SOFT_CLSTR_STR:
                 
                 crossing_table_list = utils.compute_crossings_soft(
@@ -2507,13 +2573,21 @@ class ClusterAnalyzer:
                         i + total_saved_crossings
                 
                 # Save data related to cluster probs
+                """
                 if self._clustering_type() == ClusterAnalyzer.SOFT_CLSTR_STR:
                     for cluster_name in self.cluster_names:
                         cluster_int = self.cluster_names[cluster_name]
                         a_crossing_in_subdf[cluster_name] = \
                                 sorted_preds[inds,cluster_int]
                 if self._clustering_type() == ClusterAnalyzer.HARD_CLSTR_STR:
-                    print(" not implemented yet!")
+                    for cluster_name in self.cluster_names:
+                        cluster_int = self.cluster_names[cluster_name]
+                        a_crossing_in_subdf[cluster_name] = \
+                                sorted_preds[inds,cluster_int]"""
+                for cluster_name in self.cluster_names:
+                    cluster_int = self.cluster_names[cluster_name]
+                    a_crossing_in_subdf[cluster_name] = \
+                            sorted_preds[inds,cluster_int]
                     
                 # Determine the cluster that's being left and the one
                 # that's arriving
@@ -3035,11 +3109,15 @@ class ClusterAnalyzer:
             
             
             
-            #### Save cluster histogram
-            cluster_figname = cluster_name + "_cluster" + self.IMAGE_TYPE
-            image_path = os.path.join(gmm_path, cluster_figname)
-            plt.savefig(image_path)
-            plt.close()
+            #### Save (or show) cluster histogram
+            if self.out_fldr is None:
+                plt.show()
+                plt.close()
+            else:
+                cluster_figname = cluster_name + "_cluster" + self.IMAGE_TYPE
+                image_path = os.path.join(gmm_path, cluster_figname)
+                plt.savefig(image_path)
+                plt.close()
             
             
             

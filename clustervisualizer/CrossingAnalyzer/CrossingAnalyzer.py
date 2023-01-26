@@ -48,14 +48,9 @@ class CrossingAnalyzer:
     
     
     
-    
-    
-    
-    
-    
-    
-    
-    
+
+
+
     def __init__(self, crossing_dict,
                        crossing_names = None,
                        keep_empty     = None,
@@ -141,12 +136,27 @@ class CrossingAnalyzer:
     def _init_output_folder(self, output_folder):
         
         """
-        asdf
+        Creates subfolder at address given by output_folder arg
+        
+        Parameters
+        ----------
+        output_folder: str (or None)
+            If not none, path to desired subfolder to create
+            If None, path becomes cwd/Crossing_Analysis
+        
+        Returns
+        -------
+        None or str
+            Returns None if output_folder arg is None
+            Returns global address if output_folder is not None
         """
         
-        if output_folder is None: output_folder = os.getcwd()
+        ## If none is arg, return none
+        if output_folder is None: return None
+        
+        ## Otherwise, make subfolder and return global address
         out_folder_full_path = os.path.join(output_folder,
-                                            "CrossingAnalysis")
+                                            "Crossing_Analysis")
         os.makedirs(out_folder_full_path, exist_ok=True)
         return out_folder_full_path
     
@@ -167,26 +177,27 @@ class CrossingAnalyzer:
         
         """
         Makes relative subdirectory under file structure rooted
-        at class out_fldr if it does not exist.
-        
+        at class attribute output_folder IF output_folder was set.
         
         PARAMETERS
         ----------
         subdir_path: str
             Path (global or relative) of folder to make
             
-            
         RETURNS
         -------
-        None
+        None or str
+            Returns none if output_folder is not set
+            Returns global address of created subdirectory as str if set
         """
     
-        # Get global path to subdir_path
+        ## If output folder is not set, return None
+        if self.out_fldr is None:
+            return None
+    
+        ## Otherwise, make subdir and return global address
         total_path = os.path.join(self.out_fldr, subdir_path)
-        # Make dir(s) if DNE
-        if not os.path.exists(total_path):
-            os.makedirs(total_path)
-        # Return global path
+        if not os.path.exists(total_path): os.makedirs(total_path)
         return total_path
     
     
@@ -962,8 +973,7 @@ class CrossingAnalyzer:
         else:
             plt.title(title)
         ## Save  / show fig
-        if figname is not None:
-            print(self.out_fldr)
+        if self.out_fldr is not None and figname is not None:
             figpath = os.path.join(self.out_fldr,figname+".png")
             fig.savefig(figpath)
         else:
