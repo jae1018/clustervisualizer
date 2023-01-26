@@ -21,7 +21,38 @@ from . import utils
 class ClusterAnalyzer:
     
     """
-    class descrip here
+    Creates a cluster analysis object.
+    
+    
+    Parameters
+    ----------
+    df: Pandas dataframe (N rows)
+        df of data that was clustered
+        
+    pred_arr: 1d numpy arr (N rows of ints) or 2d numpy arr
+              (N rows x K columns of floats)
+        Numpy array used to indicate cluster affiliation with one of
+        two possibilities:
+        
+        1d ARRAY <==> HARD CLUSTERING
+            A 1d array of ints means hard clustering was used 
+            (i.e. a point belongs to a cluster - or not). The
+            number of clusters is inferred from the number of
+            unique integers counting from 0 and up.
+            
+        2d ARRAY <==> SOFT CLUSTERING
+            A 2d array of floats means soft clustering was used
+            (i.e. for clustering a point among K clusters, the point
+             is assigned K probabilities that sum to 1).
+            
+    output_folder: str (default None)
+        Path to output folder to store results in.
+        If None, a subfolder 'Cluster_Analysis' is made at the
+        current working directory.
+        
+    name_clusters: 
+    
+    
     """
     
     
@@ -44,40 +75,6 @@ class ClusterAnalyzer:
                        pred_arr,
                        output_folder = None,
                        name_clusters = None):
-        
-        """
-        Creates a cluster analysis object.
-        
-        
-        Parameters
-        ----------
-        df: Pandas dataframe (N rows)
-            df of data that was clustered
-            
-        pred_arr: 1d numpy arr (N rows of ints) or 2d numpy arr
-                  (N rows x K columns of floats)
-            Numpy array used to indicate cluster affiliation.
-            
-            1d ARRAY <==> HARD CLUSTERING
-                A 1d array of ints means hard clustering was used 
-                (i.e. a point belongs to a cluster - or not). The
-                number of clusters is inferred from the number of
-                unique integers counting from 0 and up.
-                
-            2d ARRAY <==> SOFT CLUSTERING
-                A 2d array of floats means soft clustering was used
-                (i.e. for clustering a point among K clusters, the point
-                 is assigned K probabilities that sum to 1).
-                
-        output_folder: str (default None)
-            Path to output folder to store results in.
-            If None, a subfolder 'Cluster_Analysis' is made at the
-            current working directory.
-            
-        name_clusters: 
-        
-        
-        """
         
         # Make output folder
         self.out_fldr = self._init_output_folder(output_folder)
@@ -113,11 +110,16 @@ class ClusterAnalyzer:
         
         Returns
         -------
-        out_folder_full_path: str
-            global address to created subfolder
+        None or str
+            Returns None if output_folder arg is None
+            Returns global address if output_folder is not None
         """
         
-        if output_folder is None: output_folder = os.getcwd()
+        ## If none is arg, return none
+        if output_folder is None:
+            return None
+        
+        ## Otherwise, make subfolder and return global address
         out_folder_full_path = os.path.join(output_folder,
                                             "Cluster_Analysis")
         os.makedirs(out_folder_full_path, exist_ok=True)
@@ -493,7 +495,6 @@ class ClusterAnalyzer:
         if not isinstance(val, type):
             val = type(val)
         return np.issubdtype(val, np.str_)
-        #return isinstance(val, (str, np.str_))
     
     
     
@@ -600,7 +601,7 @@ class ClusterAnalyzer:
         
         #### Setup default params
         if cluster is None: cluster = ClusterAnalyzer.ALL_CLUSTERS_INT
-        #if label is None: label = list(self.df)[0]
+
         
         
         #### If given cluster is str, convert to int equivalent
@@ -882,15 +883,7 @@ class ClusterAnalyzer:
         return new_name
     
     
-    
 
-    
-    
-            
-                
-    
-    
-    
     
     
     
@@ -904,7 +897,7 @@ class ClusterAnalyzer:
                                         logx          = None,
                                         logy          = None,
                                         subplot_title = None,
-                                        num_bins      = None):
+                                        bins          = None):
         
         """
         Computes histogram for a particular variable of a cluster
@@ -947,7 +940,7 @@ class ClusterAnalyzer:
         if logx is None: logx = False
         if logy is None: logy = False
         if subplot_title is None: subplot_title = label
-        if num_bins is None: num_bins = ClusterAnalyzer.BINS_1D
+        if bins is None: bins = ClusterAnalyzer.BINS_1D
         
         
         # regardless of clustering type, set up data for background
@@ -965,8 +958,8 @@ class ClusterAnalyzer:
             #### enforce same bins across all data and in-cluster data
             min_val, max_val = np.min(label_data), np.max(label_data)
             # n+1 edges for n bins
-            max_val_for_hist = ((max_val - min_val) / num_bins) + max_val
-            label_bins = np.linspace(min_val,max_val_for_hist,num=num_bins)
+            max_val_for_hist = ((max_val - min_val) / bins) + max_val
+            label_bins = np.linspace(min_val,max_val_for_hist,num=bins)
             
             
             ## Make background hist
@@ -1296,6 +1289,8 @@ class ClusterAnalyzer:
     
     
     
+    
+    
     def _hist2d_single_cluster(self, fig,
                                      axis,
                                      cluster          = None,
@@ -1495,6 +1490,9 @@ class ClusterAnalyzer:
     
     
     
+    
+    
+    
     def _calc_mahal_dist(self, data, mu, cov):
         
         """
@@ -1530,6 +1528,10 @@ class ClusterAnalyzer:
                  mu_shifted_data.T)
                       )
         
+    
+    
+    
+    
     
     
     
@@ -1631,8 +1633,12 @@ class ClusterAnalyzer:
     
     
     
+    
+    
+    
+    
     def hist1d(self, hist_vars      = None,
-                     num_bins       = None,
+                     bins           = None,
                      figsize        = None,
                      logx           = None,
                      logy           = None,
@@ -1649,7 +1655,7 @@ class ClusterAnalyzer:
         hist_vars: list of str (optional, default all labels in class df)
             Labels of data in class df to make histograms of
             
-        num_bins: int (optional, default None)
+        bins: int (optional, default None)
             Number of bins to use for histograms
             
         figsize: 2-element tuple (optional, default None)
@@ -1682,7 +1688,7 @@ class ClusterAnalyzer:
         """
         
         if hist_vars is None: hist_vars = list(self.df)
-        if num_bins is None: num_bins = ClusterAnalyzer.BINS_1D
+        if bins is None: bins = ClusterAnalyzer.BINS_1D
         if figsize is None: figsize = ClusterAnalyzer.MULTIPLOT_SIZE
         if subplot_titles is None:
             subplot_titles = { label : label for label in hist_vars }
@@ -1734,7 +1740,7 @@ class ClusterAnalyzer:
                             label=label,
                             logx = label in logx,
                             logy = label in logy,
-                            num_bins = num_bins,
+                            bins = bins,
                             subplot_title = subplot_titles[label]
                                               )
             
@@ -1771,7 +1777,7 @@ class ClusterAnalyzer:
             
             ## Make suptitle
             cluster_name = self._cluster_int2name(cluster)
-            suptitle1 = cluster_name + " with " + str(num_bins) + " bins"
+            suptitle1 = cluster_name + " with " + str(bins) + " bins"
             suptitle2 = ("Cluster Occupancy: " + cluster_occ_str + " pts out "
                          + "of " + num_pts_str + " (" + perc_occup_str + "%)")
             suptitle = suptitle1 + "\n" + suptitle2
@@ -2257,6 +2263,8 @@ class ClusterAnalyzer:
     
         
     
+    
+    
     def compute_crossings(self, time_var                     = None,
                                 constraints                  = None,
                                 min_prob                     = None,
@@ -2266,8 +2274,8 @@ class ClusterAnalyzer:
                                 max_beyond_crossing_duration = None,
                                 min_cluster_frac             = None,
                                 order_matters                = None,
-                                overlap_preference           = None,
-                                save_crossings               = None):
+                                overlap_preference           = None):#,
+                                #save_crossings               = None):
 
         
         """
@@ -2275,7 +2283,90 @@ class ClusterAnalyzer:
         between clusters if given parameters related to crossing duration
         and minimum probability.
         
-        Determine crossings in clustering
+        DIAGRAM
+        -------
+        prob-axis
+           || * *   * * * * * * * * |       | o o   o o o o o o | 
+           || |   *     |           *       o     o   |         o 
+           ||-|---------|-----------|-------|---------|---------|- min_prob
+           || |         |           | * * o |         |         |
+           || |         |           | o o * |         |         |
+           || |   o     |           o       *     *   |         * 
+           || o o   o o o o o o o o |       | * *   * * * * * * | 
+         ==||=|=========|===========|=======|=========|=========|= time-axis
+           || X         |           A       B         |         Y
+           ||           Q                             W
+               * - cluster 1 probability
+               o - cluster 2 probability
+        
+        
+        Parameters
+        ----------
+        time_var: str (optional, default is first label in df)
+            Label for time data
+            
+        constraints: list of labels / dicts(str,values) (optional, default none)
+            List of labels and dict representing what values to separate data
+            over while searching for crossings.
+            For each str in list, df will be separated by all categorical
+            values under that label.
+            For each dict in list, df will be separated by all categorical
+            values *given as that value in dict*.
+            
+            example:
+                If df has two labels 'instrument' (with values 'A' and 'B')
+                and 'mode' (with values 1,2,3) and you want to find crossings
+                separated by 'instrument' and in mode 3, then this arg would be
+                constraints=['instrument', {'mode':3}]
+                
+        min_prob: float (optional, default 0.8)
+            The minimum probability required to say that a point belongs to
+            a cluster.
+            
+        min_crossing_duration: Pandas time delta, *has to be set!*
+            NO LONGER SUPPORTED - NOT RELEVANT
+
+        max_crossing_duration: Pandas time delta, *has to be set!*
+            The maximum allowed time duration between the start and end
+            of a crossing.
+            This is the (A,B) interval in the diagram above.
+
+        min_beyond_crossing_duration: Pandas time delta, *has to be set!*
+            The minimum amount of time to track data over a crossing
+            This is the (Q,W) interval in the diagram above.
+            
+        max_beyond_crossing_duration: Pandas time delta, *has to be set!*
+            The maximum amount of time to track data over a crossing
+            This is the (X,Y) interval in the diagram above.
+            
+        min_cluster_frac: float <= 1.0 (optional, default 1.0)
+            Percentage indicating how many points pre-crossing (before A)
+            and post-crossing (after B) in intervals (Q,A) and (B,W) have
+            cluster probability >= min_prob
+            
+        order_matters: bool (optional, default True)
+            If False, considers order of cluster transitions relevant e.g.
+            a crossing from cluster 1 to 2 is distinct from a crossing from
+            cluster 2 to 1.
+            If True, the above are saved under the same category
+            
+        overlap_preference: str (optional, default 'best')
+            Str indicating what crossing to choose if there is overlap
+            between crossings (overlap meaning the (Q,W) intervals between
+            two or more crossings overlap).
+            
+            Options:
+                'best': Choose the crossing with highest cluster_fraction
+                'latest': Save the latest-occuring crossing
+                'earliest': Save the earliest-occuring crossing
+                'best': Discard all overlapping crossings
+            
+                
+        Returns
+        -------
+        Dict (2-element str tuples : dataframes)
+            Keys are starting and ending cluster names and values are
+            dataframes of crossings data
         
         """
         
@@ -2285,7 +2376,7 @@ class ClusterAnalyzer:
         if time_var is None: time_var = list(self.df)[0]
         if min_prob is None: min_prob = 0.8
         if order_matters is None: order_matters = True
-        if save_crossings is None: save_crossings = False
+        #if save_crossings is None: save_crossings = False
         if overlap_preference is None:
             overlap_preference = "best"
         
@@ -2544,6 +2635,7 @@ class ClusterAnalyzer:
                 
                 
         #### Make output folder to save crossings if specified
+        """
         if save_crossings is not None:
             out_fldr_path = self._make_rel_subdir("crossing_csvs")
             ## Save each crossing dataframe with (cluster1)_(cluster2)
@@ -2552,6 +2644,7 @@ class ClusterAnalyzer:
                 file_path = os.path.join(out_fldr_path,
                                          '_'.join(key) + '.csv')
                 crossing_dict[key].to_csv(file_path, index=False)
+        """
         
         
         
