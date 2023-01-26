@@ -10,18 +10,31 @@ from sklearn.mixture import GaussianMixture
 
 
 
-
+#### Load iris data set
 X, y = load_iris(as_frame=True, return_X_y=True)
 
 
 
+#### Cluster data using soft clustering
 gm = GaussianMixture(n_components=3).fit(X)
 preds = gm.predict_proba(X)
 
 
 
-fldr = '/home/jedmond/Documents/testing_clustering_download/soft'
-#fldr = None
-clust_inst = clust(X, preds, output_folder=fldr)
+####  Perform cluster analysis
+## Make cluster analysis instance and name clusters
+clust_inst = clust(
+                X,
+                preds,
+                name_clusters={
+                    'setosa': ('petal width (cm)', 
+                               lambda x: -1*np.mean(x)),
+                    'virginica': 'petal length (cm)',
+                    'versicolor': ('sepal width (cm)',
+                                   lambda x: -1*np.mean(x))
+                                }
+                    )
+## Make histograms
 clust_inst.hist1d(bins=15)
-clust_inst.hist2d(bins=(10,10), hist_var='probability')
+clust_inst.hist2d(bins=(10,10),
+                  hist_var='probability')
