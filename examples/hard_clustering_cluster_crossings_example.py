@@ -10,6 +10,7 @@ from sklearn.cluster import KMeans
 
 
 
+
 #### Generate data
 nl = 100
 nh = 100
