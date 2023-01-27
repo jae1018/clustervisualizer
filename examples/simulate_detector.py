@@ -510,7 +510,7 @@ class simulate_detector:
 
 
 
-
+"""
 
 detector_sim = simulate_detector(
                     init_posit = (0.1,0.5),
@@ -526,5 +526,6 @@ detector_sim.start()
 df = detector_sim.get_data()
 
 detector_sim.plot_every(100)
+"""
 
         
