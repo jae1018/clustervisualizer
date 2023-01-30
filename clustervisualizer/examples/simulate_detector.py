@@ -391,9 +391,26 @@ class simulate_detector:
         """
         
         ## Init params
-        if init_posit is None: init_posit = (0.15, 0.5)
-        if init_veloc is None: init_veloc = (0.137,0.068325)
         if box_bnds is None: box_bnds = (0,1,0,1)  # x1, x2, y1, y2
+        if init_posit is None:
+            init_posit = np.zeros(2)
+            
+            init_posit[0] = (np.random.random()
+                             * (box_bnds[1] - box_bnds[0])
+                                 + box_bnds[0])
+            init_posit[1] = (np.random.random()
+                             * (box_bnds[3] - box_bnds[2])
+                                 + box_bnds[2])
+        if init_veloc is None:
+            init_veloc = np.zeros(2)
+            init_veloc[0] = (np.random.random()
+                             * (box_bnds[1] - box_bnds[0])
+                             * (1/20)
+                                 + box_bnds[0])
+            init_veloc[1] = (np.random.random()
+                             * (box_bnds[3] - box_bnds[2])
+                             * (1/20)
+                                 + box_bnds[2])
         if max_iter is None: max_iter = 250
         if lowt_kwargs is None: lowt_kwargs = { "loc" : 10, 'scale' : 1 }
         if hight_kwargs is None: hight_kwargs = { "loc" : 100, 'scale' : 10 }
