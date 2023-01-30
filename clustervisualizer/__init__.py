@@ -30,3 +30,4 @@ Created on Thu Oct  6 11:51:16 2022
 
 from .CrossingAnalyzer import CrossingAnalyzer
 from .ClusterAnalyzer import ClusterAnalyzer
+from . import examples
