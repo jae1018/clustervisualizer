@@ -19,12 +19,6 @@ from matplotlib.dates import AutoDateLocator, AutoDateFormatter, date2num
 
 
 
-module_loc = "/home/jedmond/Documents/ML_Research/Source/customplotlib"
-sys.path.insert(0, module_loc)
-import customplotlib as cpl
-
-
-
 
 
 class CrossingAnalyzer:
@@ -510,7 +504,8 @@ class CrossingAnalyzer:
                                        point_type  = None,
                                        cluster     = None,
                                        labels      = None,
-                                       filter_dict = None):
+                                       filter_dict = None,
+                                       single_df   = None):
         
         """
         
@@ -536,11 +531,16 @@ class CrossingAnalyzer:
             Dict with dataframe labels as keys and functions as values.
             Data for which the function returns True are kept and others are
             discarded.
+            
+        single_df: bool (optional, default False)
+            If False, list of dataframes is returned
+            If True, dataframes are concatenated.
 
         
         RETURNS
         -------
-        list of crossing dataframes
+        list of crossing dataframes OR single dataframe
+            Former if single_df is False, latter if True
         
         """
         
@@ -595,6 +595,12 @@ class CrossingAnalyzer:
             ## Apply function to x and y data for this dataframe if specified
             if not ignore_this_cross:
                 crossing_dfs.append( cross_df[labels] )
+        
+        
+        
+        if single_df:
+            crossing_dfs = pd.concat( crossing_dfs )
+            crossing_dfs.reset_index(drop=True, inplace=True)
         
 
         return crossing_dfs

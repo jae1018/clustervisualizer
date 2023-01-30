@@ -43,10 +43,16 @@ class temp:
         self._lt_kwargs = low_temp_kwargs
         self._ht_kwargs = high_temp_kwargs
         
-        if isinstance(bnds, (list, tuple, np.ndarray)):
+        ## Save bnds from initial type to numpy array
+        # just keep raw if given np array
+        if isinstance(bnds, np.ndarray):
             self.bnds = bnds
+        # convert from list / tuple to np array
+        elif isinstance(bnds, (list, tuple)):
+            self.bnds = np.array( bnds )
+        # convert from number to single-element np array
         else:
-            self.bnds = [ bnds ]
+            self.bnds = np.array([ bnds ])
     
     
     
@@ -54,6 +60,14 @@ class temp:
         
         """
         Make a low-temp measurement
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        number
         """
         
         return np.random.normal( **self._lt_kwargs )
@@ -64,22 +78,74 @@ class temp:
         
         """
         Make a high-temp measurement
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        number
         """
         
         return np.random.normal( **self._ht_kwargs )
     
     
     
+    def _make_mixed_measurement(self, x_posit):
+        
+        """
+        Make a mixed measurement
+        
+        Parameters
+        ----------
+        x_posit: number
+            The x positon to make the measurement (should be in between
+            boundaries for this)
+            
+        Returns
+        -------
+        number
+        """
+        
+        ## For linear interp, common values across mean and std interp
+        ## are the x_shift, delta_x for slope, and intercept terms
+        x_shift = (x_posit - self.bnds[0])
+        intercept = self._lt_kwargs['loc']
+        delta_x = self.bnds[1] - self.bnds[0]
+        
+        ## Compute linear interp for new mean
+        delta_mean = self._ht_kwargs['loc'] - self._lt_kwargs['loc']
+        slope = delta_mean / delta_x
+        _mean = slope * x_shift + intercept
+        
+        ## Compute linear interp for new std-dev
+        delta_stddev = self._ht_kwargs['scale'] - self._lt_kwargs['scale']
+        slope = delta_stddev / delta_x
+        _std = slope * x_shift + intercept
+        
+        return np.random.normal(loc=_mean, scale=_std)
+    
+    
+    
     def make_measurement(self, x_posit):
         
         """
-        Make simulated measurements
+        Make simulated measurements based on x position of the detector
+        
+        Parameters
+        ----------
+        x_posit: number
+            The x positon to make the measurement.
+            
+        Returns
+        -------
+        number
         """
         
         ## If only one bound, then there's a *hard* boundary
         ## so sample from low temp gas if <= bound, or sample from
         ## high temp gas if . bound
-        if len(self.bnds) == 1:
+        if self.bnds.shape[0] == 1:
             # If left of hard boundary, sample low temp gas
             if x_posit <= self.bnds[0]:
                 return self._make_lt_measurement()
@@ -89,17 +155,15 @@ class temp:
         
         ## If two bounds, then there's a soft boudnary
         else:
-            lowt = self._make_lt_measurement()
-            hight = self._make_ht_measurement()
             # If left of start boundary, then sample low temp
             if x_posit <= self.bnds[0]:
-                return lowt
+                return self._make_lt_measurement()
             # If right of end boundary, then sample high temp
             elif x_posit > self.bnds[1]:
-                return hight
-            # If between boundaries, take average of low and high temp
+                return self._make_ht_measurement()
+            # If between boundaries, make mixed measurement
             else:
-                return (lowt + hight)/2
+                return self._make_mixed_measurement(x_posit)
                 
                 
                 
@@ -327,15 +391,28 @@ class simulate_detector:
         """
         
         ## Init params
-        if init_posit is None: init_posit = (0.25, 0.5)
-        if init_veloc is None: init_veloc = (0.125,0)
+        if init_posit is None: init_posit = (0.15, 0.5)
+        if init_veloc is None: init_veloc = (0.137,0.068325)
         if box_bnds is None: box_bnds = (0,1,0,1)  # x1, x2, y1, y2
-        if max_iter is None: max_iter = 100
+        if max_iter is None: max_iter = 250
         if lowt_kwargs is None: lowt_kwargs = { "loc" : 10, 'scale' : 1 }
         if hight_kwargs is None: hight_kwargs = { "loc" : 100, 'scale' : 10 }
         if temp_boundary is None:
             temp_boundary = (box_bnds[1] - box_bnds[0])/2 + box_bnds[0]
-        
+            
+        ## Check that given values are all legit
+        # Confirm init x position within box bounds
+        if ((init_posit[0] < box_bnds[0]) or (init_posit[0] > box_bnds[1])):
+            raise ValueError(
+                "Given x position for detector (" + str(init_posit[0])
+                + ") not within x bounds of box: " + str(box_bnds[[0,1]]) 
+                            )
+        # Confirm init y position within box bounds
+        if ((init_posit[1] < box_bnds[2]) or (init_posit[1] > box_bnds[3])):
+            raise ValueError(
+                "Given y position for detector (" + str(init_posit[1])
+                + ") not within y bounds of box: " + str(box_bnds[[2,3]]) 
+                            )
         
         ## Create instances of classes
         # detector
@@ -423,6 +500,82 @@ class simulate_detector:
     
     
     
+    def _plot_box_and_temp(self, ax, delta=None):
+        
+        """
+        Plot the box and temp boundaries on an ax object
+        
+        Parameters
+        ----------
+        ax: matplotlib AxesSubplot instance
+            ax to plot data onto
+            
+        delta: number (optional, default 0.1)
+            What fraction of the viewing window should be outside the box
+            
+        Returns
+        -------
+        None
+        """
+        
+        if delta is None: delta = 0.1
+        
+        kwargs = { "linestyle" : "dashed",
+                   "c" : "black" }
+        
+        ## setup box bounds ...
+        # for x1
+        ax.axvline(x    = self.box.x1,
+                   ymin = self.box.y1,
+                   ymax = self.box.y2,
+                   **kwargs)
+        # for x2
+        ax.axvline(x    = self.box.x2,
+                   ymin = self.box.y1,
+                   ymax = self.box.y2,
+                   **kwargs)
+        # for y1
+        ax.axhline(y    = self.box.y1,
+                   xmin = self.box.x1,
+                   xmax = self.box.x2,
+                   **kwargs)
+        # for y2
+        ax.axhline(y    = self.box.y2,
+                   xmin = self.box.x1,
+                   xmax = self.box.x2,
+                   **kwargs)
+        
+        ## show boundary transition line(s)
+        # plot first (or only) vertical line as blue regardless
+        # just plot blue vertical line if hard boundary
+        ax.axvline(x = self.temp.bnds[0],
+                   ymin = self.box.y1,
+                   ymax = self.box.y2,
+                   linestyle = 'solid',
+                   c = 'blue')
+        # plot red vertical line for soft boundary
+        if self.temp.bnds.shape[0] > 1:
+            ax.axvline(x = self.temp.bnds[1],
+                       ymin = self.box.y1,
+                       ymax = self.box.y2,
+                       linestyle = 'solid',
+                       c = 'red')
+            
+        ## setup x/y plot bounds based on delta window
+        # compute x bounds
+        extra_x = delta * (self.box.x2 - self.box.x1)
+        x_bot = self.box.x1 - extra_x/2
+        x_top = self.box.x2 + extra_x/2
+        # compute y bounds
+        extra_y = delta * (self.box.y2 - self.box.y1)
+        y_bot = self.box.y1 - extra_y/2
+        y_top = self.box.y2 + extra_y/2
+        # set bounds
+        ax.set_xlim( [x_bot, x_top] )
+        ax.set_ylim( [y_bot, y_top] )
+        
+        
+    
     def plot_every(self, n):
         
         """
@@ -437,45 +590,6 @@ class simulate_detector:
                 ## init figure
                 fig, axes = plt.subplots(1,1)
                 
-                kwargs = { "linestyle" : "dashed",
-                           "c" : "black" }
-                
-                ## setup box bounds ...
-                # for x1
-                axes.axvline(x    = self.box.x1,
-                             ymin = self.box.y1,
-                             ymax = self.box.y2,
-                             **kwargs)
-                # for x2
-                axes.axvline(x    = self.box.x2,
-                             ymin = self.box.y1,
-                             ymax = self.box.y2,
-                             **kwargs)
-                # for y1
-                axes.axhline(y    = self.box.y1,
-                             xmin = self.box.x1,
-                             xmax = self.box.x2,
-                             **kwargs)
-                # for y2
-                axes.axhline(y    = self.box.y2,
-                             xmin = self.box.x1,
-                             xmax = self.box.x2,
-                             **kwargs)
-                
-                ## setup x/y plot bounds based on delta window
-                delta = 0.1
-                # compute x bounds
-                extra_x = delta * (self.box.x2 - self.box.x1)
-                x_bot = self.box.x1 - extra_x/2
-                x_top = self.box.x2 + extra_x/2
-                # compute y bounds
-                extra_y = delta * (self.box.y2 - self.box.y1)
-                y_bot = self.box.y1 - extra_y/2
-                y_top = self.box.y2 + extra_y/2
-                # set bounds
-                axes.set_xlim( [x_bot, x_top] )
-                axes.set_ylim( [y_bot, y_top] )
-                
                 ## plot detector posit
                 axes.scatter(*self.posit_arr[i,:], s=5, marker='o')
                 
@@ -488,6 +602,43 @@ class simulate_detector:
                 ## show and close
                 plt.show()
                 plt.close()
+        
+        
+        
+    def plot_trajectory(self):
+        
+        """
+        Make plot showing trajectory of detector
+        """
+        
+        fig, ax = plt.subplots(1,1)
+        
+        self._plot_box_and_temp(ax)
+        
+        ax.plot(self.posit_arr[:,0], self.posit_arr[:,1],
+                marker = '.',
+                linewidth = 0.5)
+        
+        ## highlight first and last positions
+        # first posit
+        ax.scatter(self.posit_arr[0,0], self.posit_arr[0,1],
+                   marker='*',
+                   s=100,
+                   edgecolors='black',
+                   facecolors='none')
+        # last
+        ax.scatter(self.posit_arr[-1,0], self.posit_arr[-1,1],
+                   marker='o',
+                   s=100,
+                   edgecolors='black',
+                   facecolors='none')
+        
+        plt.show()
+        plt.close()
+            
+            
+            
+            
         
         
         
