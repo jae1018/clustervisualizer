@@ -171,6 +171,35 @@ class ClusterAnalyzer:
     
     
     
+    def _is_numeric_var(self, label):
+        
+        """
+        Checks if data given by label is numeric
+        
+        Parameters
+        ----------
+        label: str (or 1-element list of str)
+            str used to access data in class dataframe
+            
+        RETURNS
+        -------
+        boolean (True if categorical variable, False if not)
+        """
+        
+        if isinstance(label,list): label = label[0]
+        label_type = self.df[label].dtype.type
+        _is_int = ClusterAnalyzer._is_int( label_type )
+        _is_float = ClusterAnalyzer._is_float( label_type )
+        return _is_int or _is_float
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     def _is_categ_var(self, label):
         
@@ -189,9 +218,12 @@ class ClusterAnalyzer:
         boolean (True if categorical variable, False if not)
         """
         
-        if isinstance(label,list): label = label[0]        
+        if isinstance(label,list): label = label[0]
+        return not self._is_numeric_var(label)
+        #_is_cat = self.df[label].dtype.name == 'category'
+        #_is_str = ClusterAnalyzer._is_str( self.df[label].dtype.type )
+        #return _is_cat or _is_str
         #return not np.issubdtype( self.df[label].dtype.type, np.number )
-        return self.df[label].dtype.name == 'category'
     
     
     
@@ -735,7 +767,7 @@ class ClusterAnalyzer:
                 for single_label in label:
                 
                     # numeric var, expec val is easy
-                    if not self._is_categ_var(label):
+                    if self._is_numeric_var(label):
                         expec_vals_dict[single_label] = \
                                 cluster_probs * self.df[label].values
                     
@@ -988,7 +1020,7 @@ class ClusterAnalyzer:
         
         # 1111111111 Histograms with Numeric Data 1111111111
         
-        if not self._is_categ_var(label):
+        if self._is_numeric_var(label):
         
             
             #### enforce same bins across all data and in-cluster data
@@ -1119,7 +1151,7 @@ class ClusterAnalyzer:
             #       if statements below; it's then plotted in the
             #       same way, regardless of clustering type.
             cluster_data = self._get_data(cluster=cluster,
-                                        label=label)
+                                          label=label)
             cluster_categ_dict = None
             
             
@@ -1135,6 +1167,15 @@ class ClusterAnalyzer:
                 cluster_categ_dict = {}
                 for key, value in zip(cluster_vals, cluster_counts):
                     cluster_categ_dict[key] = value
+                    
+                # add categ counts of values in general data *but not
+                # in this cluster* as 0
+                vals_not_in_cluster = np.setdiff1d(
+                                            list(label_categ_dict.keys()),
+                                            list(cluster_categ_dict.keys())
+                                                  ).tolist()
+                for _val in vals_not_in_cluster:
+                    cluster_categ_dict[_val] = 0
             
             
             
@@ -1625,7 +1666,7 @@ class ClusterAnalyzer:
             if constraints[elem] is None:
                 label_data = self._get_data(label=elem)
                 # If variable is not categorical, throw error
-                if not self._is_categ_var(elem):
+                if self._is_numeric_var(elem):
                     raise ValueError("Separating data based on the number of"
                                      + " unique values in a NUMERIC variable"
                                      + " is not supported; categorical only!")

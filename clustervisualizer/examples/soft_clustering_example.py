@@ -12,12 +12,19 @@ from sklearn.mixture import GaussianMixture
 
 #### Load iris data set
 X, y = load_iris(as_frame=True, return_X_y=True)
+# ... and add flower type to X dataframe
+type_dict = { 0 : 'setosa',
+              1 : 'versicolor',
+              2 : 'virginica' }
+X['type'] = [ type_dict[elem] for elem in y ]
 
 
 
 #### Cluster data using soft clustering
-gm = GaussianMixture(n_components=3).fit(X)
-preds = gm.predict_proba(X)
+fit_params = ['sepal length (cm)', 'sepal width (cm)',
+              'petal length (cm)', 'petal width (cm)']
+gm = GaussianMixture(n_components=3).fit( X[fit_params] )
+preds = gm.predict_proba( X[fit_params] )
 
 
 
@@ -35,6 +42,7 @@ clust_inst = clust(
                                 }
                     )
 ## Make histograms
-clust_inst.hist1d(bins=15)
+hist_vars = [ *fit_params, 'type' ]
+clust_inst.hist1d(bins=15, hist_vars=hist_vars)
 clust_inst.hist2d(bins=(10,10),
                   hist_var='probability')
