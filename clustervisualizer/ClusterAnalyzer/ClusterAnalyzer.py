@@ -52,6 +52,9 @@ class ClusterAnalyzer:
         
     name_clusters: 
     
+        
+    "Public" Functions:
+    -------------------
     
     """
     
@@ -190,6 +193,34 @@ class ClusterAnalyzer:
         #return not np.issubdtype( self.df[label].dtype.type, np.number )
         return self.df[label].dtype.name == 'category'
     
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    def rename_clusters(self, names_dict):
+        
+        """
+        Renames the clusters using a dict with keys as the original names
+        and values as the old names
+        
+        Parameters
+        ----------
+        names_dict: dict[str,str]
+            Dict with keys as original names and values as new names.
+            
+        Returns
+        -------
+        None
+        """
+        
+        self.cluster_names = { names_dict[k] : v \
+                               for k,v in self.cluster_names.items() }
+
     
     
     
@@ -376,10 +407,12 @@ class ClusterAnalyzer:
         # Grab fundamental numpy type from pred_arr
         arr_type = self.pred_arr.dtype.type
         # If of type int, then hard clustering
-        if ClusterAnalyzer._is_int(arr_type):
+        #if ClusterAnalyzer._is_int(arr_type):
+        if len(self.pred_arr.shape) == 1:
             return ClusterAnalyzer.HARD_CLSTR_STR
         # If of type float, then soft clustering
-        elif ClusterAnalyzer._is_float(arr_type):
+        #elif ClusterAnalyzer._is_float(arr_type):
+        elif len(self.pred_arr.shape) == 2:
             return ClusterAnalyzer.SOFT_CLSTR_STR
         # Otherwise, unrecognized type and raise Value Error
         else:
