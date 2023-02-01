@@ -59,6 +59,21 @@ class ClusterAnalyzer:
     """
     
     
+    """
+    Ongoing bugs:
+        Can't create hist in hist1d for pandas timestamp objects
+        ## also, get strange matplotlib ValueError when calling
+        ## this for histogram on pandas timestamps. Seems to be
+        ## something related to how timestamps are numerically
+        ## handled. It's a small issue and only affects how
+        ## visible the time ticks are, so just ignore it for now.
+        ## Previous error message:
+        ##   ValueError: Date ordinal 14572975.448333334 converts to
+        ##   41869-06-14T10:45:36.000000 (using epoch 1970-01-01T00:00:00),
+        ##   but Matplotlib dates must be between year 0001 and 9999.
+    """
+    
+    
     IMAGE_TYPE = ".png"
     MULTIPLOT_SIZE = (16,8)
     SINGLEPLOT_SIZE = (8,8)
@@ -1016,6 +1031,14 @@ class ClusterAnalyzer:
         if logx: label_data = np.log10(label_data)
         
         
+        # raise error if histogram data is pandas timestamp
+        _is_pd_timestamp = np.datetime64 == label_data.dtype.type
+        if _is_pd_timestamp:
+            raise ValueError(
+                "Pandas timestamp objects not currently supported in hist1d"
+                            )
+        
+        
         
         
         # 1111111111 Histograms with Numeric Data 1111111111
@@ -1229,6 +1252,7 @@ class ClusterAnalyzer:
             for a_label in axis.get_xticklabels():
                 a_label.set_rotation(40)
                 a_label.set_horizontalalignment('right')
+                
 
         # 222222222222222222222222222222222222222222222222222222
         
@@ -1769,6 +1793,14 @@ class ClusterAnalyzer:
         
         """
         
+        """
+        TO DO:
+        Make hist2d work with hard clustering where colorbar shows count
+        
+        Make colorbar work for categ vars -- but could introduce
+            combinatorial number of combinations when the values mix!
+        """
+        
         if bins is None: bins = ClusterAnalyzer.BINS_1D
         if figsize is None: figsize = ClusterAnalyzer.MULTIPLOT_SIZE
             
@@ -1796,13 +1828,13 @@ class ClusterAnalyzer:
         
         
         ## Check if types are allowed in hist_vars
-        for label in hist_vars:
+        """for label in hist_vars:
             if np.issubdtype(self.df[label].dtype.type,
                              np.datetime64):
                 raise ValueError(
                     "Histograms not supported for label using type "
                     + "numpy.datetime64: \'" + label + "\'"
-                                )
+                                )"""
         
         
         # Make output hist1d folder
@@ -2473,7 +2505,7 @@ class ClusterAnalyzer:
                 'best': Choose the crossing with highest cluster_fraction
                 'latest': Save the latest-occuring crossing
                 'earliest': Save the earliest-occuring crossing
-                'best': Discard all overlapping crossings
+                'remove': Discard all overlapping crossings
             
                 
         Returns
