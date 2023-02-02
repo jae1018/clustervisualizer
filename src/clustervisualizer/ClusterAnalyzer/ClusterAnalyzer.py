@@ -1672,59 +1672,113 @@ class ClusterAnalyzer:
         """
         
         
-        #### If constraints is None, just return None
-        if constraints is None: return [None]
-        #if constraints is None:
-        #    all_row_inds = np.arange( self.df.shape[0] )
-        #    return [ (None, all_row_inds) ]
+        # If constraints is None, just return None as constraint combo
+        # with all row indices as satisfied rows.
+        if constraints is None:
+            all_row_inds = np.arange( self.df.shape[0] )
+            return [ (None, all_row_inds) ]
         
         
-        #### Convert input from str -> list (if str)
-        #### and list -> dict with values being None (if list)
-        if isinstance(constraints, str): constraints = [ constraints ]
-        if isinstance(constraints, list):
-            constraints = { elem : None for elem in constraints }
+        # If either str or dict, put that inside list 
+        if isinstance(constraints, str):
+            constraints = [ constraints ]
+            
+        
+        ## If dict, convert to list of single-key dicts where
+        ## each value is list
+        if isinstance(constraints, dict):
+            _constraints = []
+            # turn into list with each dict having one key ...
+            for k,v in constraints.items():
+                # ... and ensure each value is a list
+                _v = v if isinstance(v,list) else [v] 
+                _constraints.append( {k:_v} )
+            constraints = _constraints
+        
         
         #### Determine unique values for each variable given
         constraints_dict = {}
         for elem in constraints:
-            
-            ## If None, then determine all unique values in variable
-            if constraints[elem] is None:
-                label_data = self._get_data(label=elem)
-                # If variable is not categorical, throw error
-                if self._is_numeric_var(elem):
-                    raise ValueError("Separating data based on the number of"
-                                     + " unique values in a NUMERIC variable"
-                                     + " is not supported; categorical only!")
-                # Otherwise, get unique values and save into dict
-                constraints_dict[elem] = np.unique(label_data).tolist()
-            
-            ## Otherwise, copy value from original dict to new dict
-            else:
-                constraints_dict[elem] = constraints[elem]
+            ## raise ValueError if given numeric label
+            label = elem if isinstance(elem,str) else list(elem.keys())[0]
+            if self._is_numeric_var(label):
+                raise ValueError("Separating data based on the number of"
+                                 + " unique values in a NUMERIC variable"
+                                 + " is not supported; categorical only!")
+            ## If given str, grab all unique values given by that label
+            if isinstance(elem, str):
+                constraints_dict[elem] = np.unique( self.df[elem] ).tolist()
+            ## If given dict, just assign key,value into constraints_dict
+            if isinstance(elem, dict):
+                constraints[elem] = elem[label]
         
         
-        #### Build constraint list
+        #### Build list of dicts where each dict contains label as key and
+        #### a *single* value to require the data to possess
         ## Get keys of constraints dict for consistent order
         constraints_keys = list(constraints_dict.keys())
-        ## Get combos of list values
+        ## Get combinations of list values
         constraint_combos = list(itertools.product(
                         *[constraints_dict[key] for key in constraints_keys]
                                                 ))
+        
+        
         ## Convert list of lists into list of dicts with variables as key names
-        constraint_combos_dict_list = []
+        combo_info = []
         for combo in constraint_combos:
-          
             # turn each combo-tuple into a dict with the constraints_keys
             # as the keys for the new dict
             combo_as_dict = {}
             for i in range(len(constraints_keys)):
                 combo_as_dict[ constraints_keys[i] ] = combo[i]
-            constraint_combos_dict_list.append( combo_as_dict )
+            ####combos_list_of_dicts.append( combo_as_dict )
+            # now get row indices of class df that satisfiy this
+            # particular set of constraints
+            inds = np.arange( self.df.shape[0] )
+            for label in combo_as_dict:
+                inds = np.intersect1d(
+                        inds,
+                        np.where( self.df[label] == combo_as_dict[label] )[0]
+                                     )
+            # save current set of constraints and row ind satisfying them
+            # as 2-elem tuple
+            combo_info.append( (combo_as_dict, inds) )
         
         
-        return constraint_combos_dict_list
+        return combo_info
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    def _get_timesorted_data_by_row_inds(self, time_label, inds):
+        
+        """
+        Get (time-sorted) subset of the class dataframe and 
+        cluster predictions. Time-sorting occurs *after* row access
+        
+        Parameters
+        ----------
+        time_label: str
+            Label used to access time data in class df
+        inds: 1d numpy integer array
+            1d numpy int arr corrsponding to row indices of class df
+            
+        Returns
+        -------
+        dataframe slice and numpy arr
+        """
+        
+        subdf = self.df.iloc[inds,:]
+        sub_preds = self.pred_arr[inds]        
+        sort_inds = np.argsort( subdf[time_label].values )
+        
+        return subdf.iloc[ sort_inds ], sub_preds[ sort_inds ]
+        
     
     
     
@@ -2576,7 +2630,7 @@ class ClusterAnalyzer:
         
         
         #### Build constraints dict
-        constraint_combos_list = \
+        constraint_info_list = \
                 self._build_constraints_list_of_dicts(constraints)
         
                 
@@ -2586,30 +2640,40 @@ class ClusterAnalyzer:
         #crossing_dfs_and_constraints = []
         print("Computing crossings under constraints:")
         total_saved_crossings = 0
-        for constraint_combo in constraint_combos_list:
+        for constraint_combo, row_inds in constraint_info_list:
             print("  ",constraint_combo)
             
             
             ## Find row inds that satisfy ALL constraints in constraint_combo
             ## (and if constraint_combo is None, just use all row inds)
-            row_inds = np.arange(self.df.shape[0])
+            """row_inds = np.arange(self.df.shape[0])
             if constraint_combo is not None:
                 for var_key in constraint_combo:
                     row_inds = np.intersect1d(
                         row_inds,
                         np.where(self.df[var_key] == constraint_combo[var_key])[0]
-                                             )
+                                             )"""
                 
                 
-            ## Get subset that satsify those constraints and sort w/r/t time
-            subdf = self.df.iloc[ row_inds, : ]
+            ## Get subset that satsify those constraints ...
+            subdf, sub_preds = \
+                    self._get_timesorted_data_by_row_inds(time_var, row_inds)
+            """subdf = self.df.iloc[ row_inds, : ]
+            print( row_inds )
+            #print( np.unique(subdf['id']) )
             # Get argsort for sorted times
-            sort_inds = np.argsort(subdf[time_var])
+            sort_inds = np.argsort( subdf[time_var] )
+            print(sort_inds)
             # Get sorted subdf *and* cluster predictions with sort_inds
             sorted_subdf = subdf.iloc[sort_inds,:]
             sorted_preds = cluster_preds[ sort_inds ]
             # Get times of subdf
-            times = sorted_subdf[time_var].values
+            times = sorted_subdf[time_var].values"""
+            
+            
+            ## clean these vars up later
+            sorted_preds = sub_preds
+            times = subdf[time_var].values
         
         
             ## Compute crossings for hard clustering
