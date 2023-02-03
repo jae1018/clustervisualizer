@@ -17,7 +17,9 @@ dependencies = [
     "numpy",
     "scipy",
     "matplotlib",
-    "pandas"
+    "pandas",
+    "sklearn",
+    "seaborn"
 ]
 
 
