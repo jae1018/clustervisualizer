@@ -198,7 +198,7 @@ class ClusterAnalyzer:
             
         RETURNS
         -------
-        boolean (True if categorical variable, False if not)
+        boolean (True if numeric variable, False if not)
         """
         
         if isinstance(label,list): label = label[0]
@@ -1072,6 +1072,7 @@ class ClusterAnalyzer:
                 # Retrieve in-cluster data
                 in_cluster_data = self._get_data(cluster=cluster,
                                                  label=label)
+                if logx: in_cluster_data = np.log10(in_cluster_data)
                 
                 # make in-cluster hist
                 axis.hist(in_cluster_data,
