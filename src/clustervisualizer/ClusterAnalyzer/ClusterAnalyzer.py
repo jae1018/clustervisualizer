@@ -1431,7 +1431,7 @@ class ClusterAnalyzer:
         ### set default params
         if cluster is None: cluster = ClusterAnalyzer.ALL_CLUSTERS_INT
         if histxy is None: histxy = list(self.df)[:2]
-        if hist_var is None: hist_var = list(self.df)[2]
+        #if hist_var is None: hist_var = list(self.df)[2]
         if hist_stat is None: hist_stat = "mean"
         if bins is None: bins = ClusterAnalyzer.BINS_2D
         if logx is None: logx = False
@@ -1485,13 +1485,13 @@ class ClusterAnalyzer:
         
         ### Handle special calculations
         # occupancy cannot have a statistic applied to them
-        if hist_var == ClusterAnalyzer.OCCUP_STR:
-            if hist_stat != "sum":
-                warnings.warn("Any statistic apart from \"sum\" cannot be"
-                              + " used with hist_var = \""
-                              + ClusterAnalyzer.OCCUP_STR + "\"; forcing "
-                              + "hist_stat to \"sum\"...")
-                hist_stat = "sum"
+        #if hist_var == ClusterAnalyzer.OCCUP_STR:
+        #    if hist_stat != "sum":
+        #        warnings.warn("Any statistic apart from \"sum\" cannot be"
+        #                      + " used with hist_var = \""
+        #                      + ClusterAnalyzer.OCCUP_STR + "\"; forcing "
+        #                      + "hist_stat to \"sum\"...")
+        #        hist_stat = "sum"
         # If soft clustering and hist_stat is "count", then
         # result is non-sensical; raise error and tell user to use "occupancy"
         if self._clustering_type() == ClusterAnalyzer.SOFT_CLSTR_STR:
@@ -1500,13 +1500,21 @@ class ClusterAnalyzer:
                                  + " clustering; use hist_var = \""
                                  + ClusterAnalyzer.OCCUP_STR + "\" with "
                                  + "hist_stat = \"sum\" instead")
+                
+                
+        ## Prepare any change in hist_var / hist_stat needed to
+        ## executed 2d scipy hist
+        if hist_var == "count":
+            hist_stat = "count"
+        #if se
            
         
         
         ### convert data to log if desired 
         if logx: histx_data = np.log10( histx_data )
         if logy: histy_data = np.log10( histy_data )
-        if log_hist_var: hist_var_data = np.log10( hist_var_data )
+        if log_hist_var and hist_var is not None:
+            hist_var_data = np.log10( hist_var_data )
         
         
         
@@ -1545,11 +1553,14 @@ class ClusterAnalyzer:
         if cbar_bounds is None:
             if hist_var == ClusterAnalyzer.PROBAB_STR:
                 cbar_bounds = (0,1)
+            if hist_var == "count":
+                cbar_bounds = (0, np.max(hist_var_stats))
             else:
                 minval = np.min(hist_var_data)
                 maxval = np.max(hist_var_data)
                 cbar_bounds = ( minval - (maxval - minval) * 0.05,
                                 (maxval - minval) * 0.05 + maxval )
+        
         
         
         
@@ -2107,6 +2118,18 @@ class ClusterAnalyzer:
         if logy is None: logy = False
         if log_hist_var is None: log_hist_var = False
         if log_hist_stat is None: log_hist_stat = False
+        
+        
+        ## Confirm hist_var is legal
+        legal_hist_vars = [ *list(self.df),
+                            ClusterAnalyzer.PROBAB_STR,
+                            ClusterAnalyzer.OCCUP_STR,
+                            'count' ]
+        if hist_var not in legal_hist_vars:
+            raise ValueError("hist_var must be set to a dataframe label, "
+                             + "\"" + ClusterAnalyzer.PROBAB_STR + "\", "
+                             + "\"" + ClusterAnalyzer.OCCUP_STR + "\", "
+                             + "or \"count\"")
         
         
         
